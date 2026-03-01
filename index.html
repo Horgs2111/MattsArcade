@@ -765,7 +765,7 @@ document.getElementById('year').textContent = new Date().getFullYear();
   const submitBtn    = document.getElementById('fb-submit');
   const RECIPIENT    = 'matthew.green2111@gmail.com';
 
-  // Populate dropdown with live/beta games only
+  // Populate dropdown with live/beta games only, then a general suggestion option
   const playableGames = GAMES.filter(g => g.status === 'live' || g.status === 'beta');
   playableGames.forEach(g => {
     const opt = document.createElement('option');
@@ -773,6 +773,16 @@ document.getElementById('year').textContent = new Date().getFullYear();
     opt.textContent = g.title;
     gameSelect.appendChild(opt);
   });
+
+  const divider = document.createElement('option');
+  divider.disabled = true;
+  divider.textContent = '─────────────────';
+  gameSelect.appendChild(divider);
+
+  const otherOpt = document.createElement('option');
+  otherOpt.value = 'General Suggestion / New Game Idea';
+  otherOpt.textContent = '💡 General Suggestion / New Game Idea';
+  gameSelect.appendChild(otherOpt);
 
   openBtn.addEventListener('click', () => {
     overlay.classList.add('open');
