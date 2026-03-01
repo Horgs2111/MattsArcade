@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matt's Game Arcade</title>
+  <style>
+    /* ─── Reset ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Variables ──────────────────────────────────────────────────── */
+    :root {
+      --bg:        #07080f;
+      --surface:   #0d0f1e;
+      --border:    #1e2340;
+      --accent1:   #00f0ff;   /* cyan  */
+      --accent2:   #bf00ff;   /* purple */
+      --accent3:   #ff006e;   /* pink  */
+      --text:      #e0e4ff;
+      --muted:     #5a607a;
+      --card-bg:   rgba(13,15,30,0.85);
+      --glow1:     0 0 12px #00f0ff88, 0 0 30px #00f0ff33;
+      --glow2:     0 0 12px #bf00ff88, 0 0 30px #bf00ff33;
+      --radius:    14px;
+    }
+
+    /* ─── Base ───────────────────────────────────────────────────────── */
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Canvas starfield ───────────────────────────────────────────── */
+    #starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ─── Scanline overlay ───────────────────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.07) 2px,
+        rgba(0,0,0,0.07) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ─── Layout wrapper ─────────────────────────────────────────────── */
+    .wrapper {
+      position: relative;
+      z-index: 2;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    /* ─── Header ─────────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      padding: 4rem 1rem 3rem;
+    }
+
+    .site-title {
+      font-size: clamp(2.4rem, 6vw, 5rem);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 50%, var(--accent3) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 18px #00f0ff66);
+      animation: titlePulse 4s ease-in-out infinite alternate;
+    }
+
+    @keyframes titlePulse {
+      from { filter: drop-shadow(0 0 14px #00f0ff55); }
+      to   { filter: drop-shadow(0 0 28px #bf00ffaa); }
+    }
+
+    .site-subtitle {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      min-height: 1.4em;
+      transition: opacity 0.6s ease;
+    }
+    .site-subtitle.fade-out { opacity: 0; }
+    .site-subtitle.fade-in  { opacity: 1; }
+
+    /* ─── Divider ─────────────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      margin: 0 auto 3rem;
+      max-width: 600px;
+      background: linear-gradient(90deg, transparent, var(--accent1), var(--accent2), transparent);
+      opacity: 0.5;
+    }
+
+    /* ─── Section heading ────────────────────────────────────────────── */
+    .section-heading {
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--accent1);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .section-heading::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent1)44, transparent);
+    }
+
+    /* ─── Game grid ──────────────────────────────────────────────────── */
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    /* ─── Game card ──────────────────────────────────────────────────── */
+    .game-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    /* animated gradient border on hover */
+    .game-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      padding: 1px;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2), var(--accent3));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .game-card:hover { transform: translateY(-6px); }
+    .game-card:hover::before { opacity: 1; }
+    .game-card:hover { box-shadow: var(--glow1); }
+
+    /* ─── Preview image area ─────────────────────────────────────────── */
+    .card-preview {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: var(--surface);
+      flex-shrink: 0;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+
+    .card-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.4s ease, filter 0.3s ease;
+      filter: brightness(0.85) saturate(1.1);
+    }
+    .game-card:hover .card-preview img {
+      transform: scale(1.05);
+      filter: brightness(1) saturate(1.2);
+    }
+
+    /* gradient overlay at bottom of preview so text reads over it */
+    .card-preview::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 40%, rgba(7,8,15,0.75) 100%);
+      pointer-events: none;
+    }
+
+    /* no-image placeholder */
+    .card-preview-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+      background: radial-gradient(ellipse at 60% 40%, #1a0a2e 0%, #07080f 70%);
+      transition: transform 0.4s ease;
+      position: relative;
+    }
+    .card-preview-placeholder::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(30,35,64,0.5) 39px, rgba(30,35,64,0.5) 40px),
+        repeating-linear-gradient(0deg,  transparent, transparent 39px, rgba(30,35,64,0.5) 39px, rgba(30,35,64,0.5) 40px);
+    }
+    .card-preview-placeholder .icon-inner {
+      position: relative;
+      z-index: 1;
+      filter: drop-shadow(0 0 16px var(--accent1));
+      animation: iconFloat 3s ease-in-out infinite alternate;
+    }
+    .game-card:hover .card-preview-placeholder { transform: scale(1.05); }
+
+    @keyframes iconFloat {
+      from { transform: translateY(0);    filter: drop-shadow(0 0 12px var(--accent1)); }
+      to   { transform: translateY(-6px); filter: drop-shadow(0 0 22px var(--accent2)); }
+    }
+
+    /* ─── Status badge — sits on the preview ────────────────────────── */
+    .status {
+      position: absolute;
+      top: 0.7rem;
+      right: 0.7rem;
+      z-index: 2;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-weight: 700;
+      backdrop-filter: blur(6px);
+    }
+    .status.live { background: #00f0ff28; color: var(--accent1); border: 1px solid var(--accent1)66; }
+    .status.wip  { background: #ff006e28; color: var(--accent3); border: 1px solid var(--accent3)66; }
+    .status.beta { background: #bf00ff28; color: var(--accent2); border: 1px solid var(--accent2)66; }
+
+    /* ─── Card body ──────────────────────────────────────────────────── */
+    .card-body {
+      padding: 1.2rem 1.4rem 1.3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      flex: 1;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #fff;
+    }
+
+    .card-desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.4rem;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .tag {
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .play-btn {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent1);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: gap 0.2s ease;
+      white-space: nowrap;
+    }
+    .game-card:hover .play-btn { gap: 0.6rem; }
+
+    /* WIP cards are dimmed and not clickable */
+    .game-card.disabled {
+      pointer-events: none;
+      opacity: 0.5;
+      cursor: default;
+    }
+    .game-card.disabled * {
+      pointer-events: none;
+      cursor: default;
+    }
+    .game-card.disabled:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    .game-card.disabled:hover::before { opacity: 0; }
+
+    /* ─── Empty-state placeholder card ───────────────────────────────── */
+    .card-placeholder {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: center;
+      min-height: 180px;
+    }
+    .card-placeholder .plus { font-size: 2rem; opacity: 0.3; }
+
+    /* ─── Feedback CTA section ───────────────────────────────────────── */
+    .feedback-cta {
+      margin-top: 4rem;
+      padding: 2.5rem 2rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(0,240,255,0.04), rgba(191,0,255,0.04));
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+    .feedback-cta h2 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.03em;
+    }
+    .feedback-cta p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 420px;
+      line-height: 1.6;
+    }
+    .btn-feedback {
+      margin-top: 0.5rem;
+      padding: 0.75rem 2rem;
+      border-radius: 99px;
+      border: 1px solid var(--accent1);
+      background: transparent;
+      color: var(--accent1);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .btn-feedback:hover {
+      background: var(--accent1);
+      color: var(--bg);
+      box-shadow: var(--glow1);
+    }
+
+    /* ─── Feedback overlay ───────────────────────────────────────────── */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      overflow-y: auto;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+    .feedback-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .feedback-page {
+      width: 100%;
+      max-width: 560px;
+      padding: 3rem 1.5rem 4rem;
+    }
+
+    .feedback-back {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 2.5rem;
+      padding: 0;
+      transition: color 0.2s ease;
+    }
+    .feedback-back:hover { color: var(--accent1); }
+
+    .feedback-title {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    .feedback-sub {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-bottom: 2.5rem;
+    }
+
+    /* form elements */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1.4rem;
+    }
+    .form-group label {
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent1);
+    }
+    .form-group select,
+    .form-group input,
+    .form-group textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      width: 100%;
+    }
+    .form-group select:focus,
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: var(--accent1);
+      box-shadow: 0 0 0 3px rgba(0,240,255,0.1);
+    }
+    .form-group select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a607a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem; }
+    .form-group select option { background: #0d0f1e; }
+    .form-group textarea { resize: vertical; min-height: 140px; line-height: 1.6; }
+
+    .btn-submit {
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: 99px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      color: #000;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: opacity 0.2s ease, box-shadow 0.2s ease;
+    }
+    .btn-submit:hover { opacity: 0.88; box-shadow: var(--glow1); }
+
+    /* ─── Footer ──────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+
+    /* ─── Scrollbar ───────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+  <header>
+    <h1 class="site-title">Matt's Arcade</h1>
+    <p class="site-subtitle" id="subtitle"></p>
+  </header>
+
+  <div class="divider"></div>
+
+  <p class="section-heading">Playable Games</p>
+  <div class="game-grid" id="grid-live"></div>
+
+  <div id="wip-section" style="margin-top:3rem;">
+    <p class="section-heading">Coming Soon</p>
+    <div class="game-grid" id="grid-wip"></div>
+  </div>
+
+  <div class="feedback-cta">
+    <h2>Got thoughts?</h2>
+    <p>Played one of the games? Found a bug, got a suggestion, or just want to say it slapped? Let Matt know.</p>
+    <button class="btn-feedback" id="open-feedback">Submit Feedback &rarr;</button>
+  </div>
+</div>
+
+<!-- ── Feedback overlay ───────────────────────────────────────────── -->
+<div class="feedback-overlay" id="feedback-overlay">
+  <div class="feedback-page">
+    <button class="feedback-back" id="close-feedback">&#x2190; Back to Arcade</button>
+    <h1 class="feedback-title">Player Feedback</h1>
+    <p class="feedback-sub">Your feedback goes straight to Matt. Be honest — he can take it.</p>
+
+    <div class="form-group">
+      <label for="fb-game">Game</label>
+      <select id="fb-game"></select>
+    </div>
+
+    <div class="form-group">
+      <label for="fb-name">Your Name</label>
+      <input type="text" id="fb-name" placeholder="e.g. John Smith" autocomplete="off" />
+    </div>
+
+    <div class="form-group">
+      <label for="fb-message">Feedback</label>
+      <textarea id="fb-message" placeholder="Tell Matt what you think..."></textarea>
+    </div>
+
+    <button class="btn-submit" id="fb-submit">Send Feedback</button>
+  </div>
+</div>
+
+<footer>
+  &copy; <span id="year"></span> Matt &mdash; All games handcrafted with chaos and caffeine
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   GAME LIST — Edit this array to add / remove games.
+
+   Fields:
+     title       : Display name of the game
+     description : Short blurb shown on the card
+     icon        : Emoji shown when no screenshot is available
+     image       : Path to a screenshot/preview image, e.g. "screenshots/my-game.png"
+                   or a full URL. Leave as "" to show the icon placeholder instead.
+     url         : Full Netlify URL. Set to "" if not deployed yet.
+     tags        : Array of short label strings shown at the bottom
+     status      : "live" | "beta" | "wip"
+                   "live" → fully clickable, cyan badge
+                   "beta" → clickable, purple badge
+                   "wip"  → dimmed, not clickable, pink badge
+
+   SCREENSHOTS: drop image files into a /screenshots folder next to index.html
+                and set image: "screenshots/filename.png"
+═══════════════════════════════════════════════════════════════════════ */
+const GAMES = [
+  {
+    title:       "Fart Simulator",
+    description: "A sophisticated simulation of the human digestive experience. Push the limits of science.",
+    icon:        "💨",
+    image:       "screenshots/fart-sim.jpg",
+    url:         "https://fart-simulator.netlify.app",
+    tags:        ["Simulator", "Comedy"],
+    status:      "live"
+  },
+
+  {
+    title:       "Legend of the Dreadwyrm",
+    description: "An epic fantasy adventure. Face the Dreadwyrm and decide the fate of the realm.",
+    icon:        "🐉",
+    image:       "screenshots/lod.jpg",
+    url:         "https://legend-of-the-dreadwyrm.netlify.app/",
+    tags:        ["RPG", "Fantasy", "Adventure"],
+    status:      "live"
+  },
+
+  {
+    title:       "Pat Vs HR",
+    description: "One man. One HR department. Infinite paperwork. Who will survive?",
+    icon:        "💼",
+    image:       "screenshots/pat-vs-hr.png",
+    url:         "",
+    tags:        ["Comedy", "Office"],
+    status:      "wip"
+  },
+
+  // ── ADD MORE GAMES BELOW ─────────────────────────────────────────────
+  // {
+  //   title:       "My New Game",
+  //   description: "A short description of what the game is about.",
+  //   icon:        "🎮",
+  //   image:       "screenshots/my-new-game.png",
+  //   url:         "https://my-new-game.netlify.app",
+  //   tags:        ["Action", "Arcade"],
+  //   status:      "live"
+  // },
+];
+
+/* ─── Render cards ──────────────────────────────────────────────────── */
+(function renderGames() {
+  const gridLive = document.getElementById('grid-live');
+  const gridWip  = document.getElementById('grid-wip');
+
+  function buildCard(game) {
+    const isClickable = (game.status === 'live' || game.status === 'beta') && game.url;
+    const tag = game.status === 'live' ? 'Live'
+              : game.status === 'beta' ? 'Beta'
+              : 'Coming Soon';
+
+    const preview = game.image
+      ? `<img src="${game.image}" alt="${game.title} screenshot" loading="lazy">`
+      : `<div class="card-preview-placeholder"><span class="icon-inner">${game.icon}</span></div>`;
+
+    const card = document.createElement(isClickable ? 'a' : 'div');
+    if (isClickable) {
+      card.href   = game.url;
+      card.target = '_blank';
+      card.rel    = 'noopener noreferrer';
+    }
+    card.className = `game-card${isClickable ? '' : ' disabled'}`;
+
+    card.innerHTML = `
+      <div class="card-preview">
+        ${preview}
+        <span class="status ${game.status}">${tag}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${game.title}</div>
+        <div class="card-desc">${game.description}</div>
+        <div class="card-footer">
+          <div class="card-tags">
+            ${game.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+          </div>
+          ${isClickable ? '<span class="play-btn">Play &#x2192;</span>' : ''}
+        </div>
+      </div>`;
+
+    return card;
+  }
+
+  const liveGames = GAMES.filter(g => g.status === 'live' || g.status === 'beta');
+  const wipGames  = GAMES.filter(g => g.status === 'wip');
+
+  if (!liveGames.length) {
+    gridLive.innerHTML = `
+      <div class="card-placeholder">
+        <span class="plus">＋</span>
+        No playable games yet — add one in the GAMES array
+      </div>`;
+  } else {
+    liveGames.forEach(g => gridLive.appendChild(buildCard(g)));
+  }
+
+  if (!wipGames.length) {
+    document.getElementById('wip-section').style.display = 'none';
+  } else {
+    wipGames.forEach(g => gridWip.appendChild(buildCard(g)));
+  }
+})();
+
+/* ─── Cycling subtitle ──────────────────────────────────────────────── */
+(function cycleSubtitle() {
+  const lines = [
+    "Built different. Play at your own risk.",
+    "Independent. Unhinged. Undefeated.",
+    "Forged in chaos. Played by the brave.",
+    "No publishers. No limits. No mercy.",
+    "Made by one. Feared by many.",
+    "Sleep is for the uninstalled.",
+    "Warning: highly addictive. Matt accepts no liability.",
+    "Coded at 2am. Perfected never.",
+    "Where sanity goes to respawn.",
+    "Pixels forged from pure spite.",
+    "Press start. Abandon hope.",
+    "Passion projects with violent tendencies.",
+    "Indie games. Industrial-strength chaos.",
+    "One dev. One dream. Many bugs.",
+    "Born in the void. Deployed on Netlify.",
+    "Handcrafted destruction. No refunds.",
+    "Your weekends will not survive this.",
+    "From the mind of a man who should probably sleep more.",
+  ];
+
+  const el = document.getElementById('subtitle');
+  let index = Math.floor(Math.random() * lines.length);
+
+  function showNext() {
+    el.classList.add('fade-out');
+    setTimeout(() => {
+      index = (index + 1) % lines.length;
+      el.textContent = lines[index];
+      el.classList.remove('fade-out');
+    }, 650);
+  }
+
+  // Show a random line immediately
+  el.textContent = lines[index];
+
+  setInterval(showNext, 4000);
+})();
+
+/* ─── Footer year ───────────────────────────────────────────────────── */
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* ─── Feedback overlay ──────────────────────────────────────────────── */
+(function initFeedback() {
+  const overlay      = document.getElementById('feedback-overlay');
+  const openBtn      = document.getElementById('open-feedback');
+  const closeBtn     = document.getElementById('close-feedback');
+  const gameSelect   = document.getElementById('fb-game');
+  const submitBtn    = document.getElementById('fb-submit');
+  const RECIPIENT    = 'matthew.green2111@gmail.com';
+
+  // Populate dropdown with live/beta games only
+  const playableGames = GAMES.filter(g => g.status === 'live' || g.status === 'beta');
+  playableGames.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.title;
+    opt.textContent = g.title;
+    gameSelect.appendChild(opt);
+  });
+
+  openBtn.addEventListener('click', () => {
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  });
+
+  function closeOverlay() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  closeBtn.addEventListener('click', closeOverlay);
+
+  const DAILY_LIMIT    = 10;
+  const STORAGE_KEY    = 'fb_submissions';
+  const ONE_DAY_MS     = 24 * 60 * 60 * 1000;
+
+  function getRecentSubmissions() {
+    const now  = Date.now();
+    const raw  = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return raw.filter(ts => now - ts < ONE_DAY_MS);
+  }
+
+  function recordSubmission() {
+    const recent = getRecentSubmissions();
+    recent.push(Date.now());
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(recent));
+  }
+
+  submitBtn.addEventListener('click', async () => {
+    const game    = gameSelect.value;
+    const name    = document.getElementById('fb-name').value.trim();
+    const message = document.getElementById('fb-message').value.trim();
+
+    if (!game)    { alert('Please select a game.'); return; }
+    if (!name)    { alert('Please enter your name.'); return; }
+    if (!message) { alert('Please enter your feedback.'); return; }
+
+    const recent = getRecentSubmissions();
+    if (recent.length >= DAILY_LIMIT) {
+      const oldest   = Math.min(...recent);
+      const resetIn  = Math.ceil((oldest + ONE_DAY_MS - Date.now()) / (1000 * 60 * 60));
+      alert(`You've reached the feedback limit for today (${DAILY_LIMIT} submissions). You can send more in ~${resetIn}h.`);
+      return;
+    }
+
+    submitBtn.textContent = 'Sending...';
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_key: '2e226e45-3ac6-45fb-9a2f-96f417aed594',
+          subject:    `Feedback - ${game}`,
+          from_name:  name,
+          message:    `Game: ${game}\nFrom: ${name}\n\n${message}`,
+          botcheck:   '',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        recordSubmission();
+        document.getElementById('fb-name').value    = '';
+        document.getElementById('fb-message').value = '';
+        gameSelect.selectedIndex = 0;
+        submitBtn.textContent = 'Feedback Sent!';
+        setTimeout(() => {
+          submitBtn.textContent = 'Send Feedback';
+          submitBtn.disabled = false;
+          closeOverlay();
+        }, 2000);
+      } else {
+        throw new Error(data.message || 'Submission failed');
+      }
+    } catch (err) {
+      alert('Something went wrong. Please try again.');
+      submitBtn.textContent = 'Send Feedback';
+      submitBtn.disabled = false;
+    }
+  });
+})();
+
+/* ─── Starfield canvas ──────────────────────────────────────────────── */
+(function initStarfield() {
+  const canvas = document.getElementById('starfield');
+  const ctx    = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  const NUM_STARS   = 180;
+  const STAR_SPEED  = 0.25;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function mkStar() {
+    return {
+      x:    Math.random() * W,
+      y:    Math.random() * H,
+      r:    Math.random() * 1.2 + 0.2,
+      vx:   (Math.random() - 0.5) * STAR_SPEED,
+      vy:   (Math.random() - 0.5) * STAR_SPEED,
+      a:    Math.random(),
+      da:   (Math.random() - 0.5) * 0.004
+    };
+  }
+
+  function init() {
+    resize();
+    stars = Array.from({ length: NUM_STARS }, mkStar);
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, W, H);
+
+    /* faint grid */
+    ctx.strokeStyle = 'rgba(30,35,64,0.45)';
+    ctx.lineWidth   = 1;
+    const spacing   = 60;
+    for (let x = 0; x < W; x += spacing) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += spacing) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    /* stars */
+    stars.forEach(s => {
+      s.x  += s.vx;
+      s.y  += s.vy;
+      s.a  += s.da;
+      if (s.a < 0) s.da =  Math.abs(s.da);
+      if (s.a > 1) s.da = -Math.abs(s.da);
+      if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
+      if (s.y < 0) s.y = H; if (s.y > H) s.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200,210,255,${s.a * 0.8})`;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(tick);
+  }
+
+  window.addEventListener('resize', resize);
+  init();
+  tick();
+})();
+</script>
+</body>
+</html>
