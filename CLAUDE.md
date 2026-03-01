@@ -22,6 +22,14 @@ npx serve .
 
 `LaunchClaudeWindowed.bat` opens a dedicated terminal window in this directory with Claude Code running.
 
+## Deploying
+
+The `deploy/` folder is what Netlify serves. After every change to `index.html` or `screenshots/`, copy the updated files into `deploy/` before committing and pushing. Both `index.html` and `deploy/index.html` must always be kept in sync.
+
+```bash
+cp index.html deploy/index.html
+```
+
 ## Stack
 
 Static HTML/CSS/JS — no frameworks, no bundler, no package manager unless one is introduced later.
