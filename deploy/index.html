@@ -261,6 +261,7 @@
     .status.live { background: #00f0ff28; color: var(--accent1); border: 1px solid var(--accent1)66; }
     .status.wip  { background: #ff006e28; color: var(--accent3); border: 1px solid var(--accent3)66; }
     .status.beta { background: #bf00ff28; color: var(--accent2); border: 1px solid var(--accent2)66; }
+    .status.demo { background: #ff7a0028; color: #ff7a00;        border: 1px solid #ff7a0066; }
 
     /* ─── Card body ──────────────────────────────────────────────────── */
     .card-body {
@@ -545,6 +546,11 @@
   <p class="section-heading">Playable Games</p>
   <div class="game-grid" id="grid-live"></div>
 
+  <div id="demo-section" style="margin-top:3rem;">
+    <p class="section-heading">Playable Demos</p>
+    <div class="game-grid" id="grid-demo"></div>
+  </div>
+
   <div id="wip-section" style="margin-top:3rem;">
     <p class="section-heading">Coming Soon</p>
     <div class="game-grid" id="grid-wip"></div>
@@ -655,7 +661,7 @@ const GAMES = [
     image:       "screenshots/haulin-space.png",
     url:         "",
     tags:        ["???"],
-    status:      "wip"
+    status:      "demo"
   },
 
   {
@@ -683,12 +689,14 @@ const GAMES = [
 /* ─── Render cards ──────────────────────────────────────────────────── */
 (function renderGames() {
   const gridLive = document.getElementById('grid-live');
+  const gridDemo = document.getElementById('grid-demo');
   const gridWip  = document.getElementById('grid-wip');
 
   function buildCard(game) {
-    const isClickable = (game.status === 'live' || game.status === 'beta') && game.url;
+    const isClickable = (game.status === 'live' || game.status === 'beta' || game.status === 'demo') && game.url;
     const tag = game.status === 'live' ? 'Live'
               : game.status === 'beta' ? 'Beta'
+              : game.status === 'demo' ? 'Demo'
               : 'Coming Soon';
 
     const preview = game.image
@@ -723,6 +731,7 @@ const GAMES = [
   }
 
   const liveGames = GAMES.filter(g => g.status === 'live' || g.status === 'beta');
+  const demoGames = GAMES.filter(g => g.status === 'demo');
   const wipGames  = GAMES.filter(g => g.status === 'wip');
 
   if (!liveGames.length) {
@@ -733,6 +742,12 @@ const GAMES = [
       </div>`;
   } else {
     liveGames.forEach(g => gridLive.appendChild(buildCard(g)));
+  }
+
+  if (!demoGames.length) {
+    document.getElementById('demo-section').style.display = 'none';
+  } else {
+    demoGames.forEach(g => gridDemo.appendChild(buildCard(g)));
   }
 
   if (!wipGames.length) {
